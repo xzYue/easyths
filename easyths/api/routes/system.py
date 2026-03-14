@@ -56,7 +56,8 @@ async def get_system_status(
             "automator": {
                 "connected": is_connected,
                 "app_path": automator.app_path,
-                "backend": automator.backend
+                "backend": automator.backend,
+                "locator_backend": automator.locator_backend
             },
             "plugins": {
                 "loaded_plugins": list(operations.keys()),

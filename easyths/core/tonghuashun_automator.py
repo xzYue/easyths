@@ -11,6 +11,7 @@ from typing import Optional
 
 import structlog
 from pywinauto.application import Application
+from pywinauto import Desktop
 
 from easyths.utils import project_config_instance
 
@@ -32,6 +33,7 @@ class TonghuashunAutomator:
         self.main_window = None
         self.main_window_wrapper_object = None
         self.backend = "uia"
+        self.locator_backend = "uia"
         self._connected = False
         self.logger = structlog.get_logger(__name__)
 
@@ -53,8 +55,24 @@ class TonghuashunAutomator:
         self.main_window = self.app.window(**self._window_kwargs(backend))
         self.main_window_wrapper_object = self.main_window.wrapper_object()
         self.backend = backend
+        self.locator_backend = backend
         self._connected = True
-        self.logger.info("连接到同花顺进程", backend=backend)
+        self.logger.info("连接到同花顺进程", backend=backend, locator_backend=backend)
+        return True
+
+    def _connect_via_win32_handle_to_uia(self) -> bool:
+        win32_app = Application(backend="win32").connect(path=self.app_path, timeout=5)
+        win32_window = win32_app.window(**self._window_kwargs("win32"))
+        win32_wrapper = win32_window.wrapper_object()
+        handle = win32_wrapper.handle
+
+        self.app = Application(backend="uia").connect(handle=handle, timeout=5)
+        self.main_window = Desktop(backend="uia").window(handle=handle)
+        self.main_window_wrapper_object = self.main_window.wrapper_object()
+        self.backend = "uia"
+        self.locator_backend = "win32"
+        self._connected = True
+        self.logger.info("通过 win32 定位句柄后切回 UIA 成功", backend="uia", locator_backend="win32", handle=handle)
         return True
 
     def connect(self) -> bool:
@@ -75,8 +93,12 @@ class TonghuashunAutomator:
             try:
                 return self._connect_with_backend("uia")
             except Exception as ui_error:
-                self.logger.warning("UIA 后端连接失败，尝试回退到 win32", error=str(ui_error))
-                return self._connect_with_backend("win32")
+                self.logger.warning("UIA 后端连接失败，尝试通过 win32 定位句柄后切回 UIA", error=str(ui_error))
+                try:
+                    return self._connect_via_win32_handle_to_uia()
+                except Exception as hybrid_error:
+                    self.logger.warning("win32 句柄桥接到 UIA 失败，回退到 win32", error=str(hybrid_error))
+                    return self._connect_with_backend("win32")
 
         except Exception as e:
             self.logger.exception("连接同花顺失败", error=str(e))
@@ -89,6 +111,7 @@ class TonghuashunAutomator:
         self.main_window_wrapper_object = None
         self.app = None
         self.backend = "uia"
+        self.locator_backend = "uia"
         self.logger.info("已断开同花顺连接")
 
     def is_connected(self) -> bool:
