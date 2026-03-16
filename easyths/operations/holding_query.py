@@ -31,7 +31,8 @@ class HoldingQueryOperation(BaseOperation):
         """验证查询参数"""
         try:
             return_type = params.get("return_type")
-            if return_type not in ["str", "json", "dict", "markdown"]:
+            # return_type 是可选参数，默认 json，None 表示使用默认值
+            if return_type is not None and return_type not in ["str", "json", "dict", "markdown"]:
                 self.logger.error("参数return_type无效，有效值为：str、json、dict、markdown")
                 return False
             return True
@@ -43,17 +44,18 @@ class HoldingQueryOperation(BaseOperation):
     def execute(self, params: Dict[str, Any]) -> OperationResult:
         """执行持仓查询操作"""
         start_time = time.time()
-        return_type = params.get("return_type")
+        return_type = params.get("return_type", "json")
         try:
             self.logger.info(f"执行持仓查询操作。")
-            # 切换到持仓菜单
-            self.switch_left_menus("查询[F4]", "资金股票")
+            # 切换到持仓菜单（直接按 F4，兼容远航版，参考 funds_query 的修复 issues/4）
+            main_window_wrapper = self.get_main_window(wrapper_obj=True)
+            main_window_wrapper.type_keys("{F4}")
+            self.sleep(0.2)
             # 刷新数据
-            self.get_main_window(wrapper_obj=True).type_keys("{F5}")
+            main_window_wrapper.type_keys("{F5}")
             # 等待页面加载完成，这个页面还是需要实时的
             self.clear_clipboard()
             self.sleep(0.3)
-            main_window_wrapper = self.get_main_window(wrapper_obj=True)
             main_panel = self.get_control_with_children(main_window_wrapper, class_name="AfxMDIFrame140s", control_type="Pane", auto_id="59648").children(class_name='AfxMDIFrame140s')[0]
 
             HexinScrollWnd = self.get_control_with_children(main_panel, title='HexinScrollWnd', auto_id="1047")
