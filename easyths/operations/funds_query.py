@@ -53,8 +53,10 @@ class FundsQueryOperation(BaseOperation):
             }
 
             # 一次遍历完成信息提取
+            # 标准版 auto_id: 1012~1027；远航版 auto_id: 20000~20008
             for control in text_controls:
                 auto_id = control.element_info.automation_id
+                # 标准版
                 if auto_id == "1012":
                     result_data["资金余额"] = control.window_text()
                 elif auto_id == "1013":
@@ -69,6 +71,25 @@ class FundsQueryOperation(BaseOperation):
                     result_data["总资产"] = control.window_text()
                 elif auto_id == "1027":
                     result_data["持仓盈亏"] = control.window_text()
+                # 远航版
+                elif auto_id == "20000":
+                    result_data["可用金额"] = control.window_text()
+                elif auto_id == "20001":
+                    result_data["总负债"] = control.window_text()
+                elif auto_id == "20002":
+                    result_data["持仓盈亏"] = control.window_text()
+                elif auto_id == "20003":
+                    result_data["可用保证金"] = control.window_text()
+                elif auto_id == "20004":
+                    result_data["股票市值"] = control.window_text()
+                elif auto_id == "20005":
+                    result_data["当日盈亏"] = control.window_text()
+                elif auto_id == "20006":
+                    result_data["净资产"] = control.window_text()
+                elif auto_id == "20007":
+                    result_data["总资产"] = control.window_text()
+                elif auto_id == "20008":
+                    result_data["维持担保品比例"] = control.window_text()
 
             self.logger.info(f"资金查询完成，耗时{time.time() - start_time}", **result_data)
 
