@@ -127,22 +127,12 @@ class BuyOperation(BaseOperation):
 
             # # 1. 输入股票代码
             self.get_control_with_children(main_panel, control_type="Edit", auto_id="1032").type_keys(stock_code)
-            self.sleep(0.3)  # 等待自动填充完成（信用账户会自动填入股票名称和可用数量）
-            # # 2.输入价格（先全选清空再输入，兼容信用账户价格框自动填充的情况）
-            price_ctrl = self.get_control_with_children(main_panel, control_type="Edit", auto_id="1033")
-            price_ctrl.set_focus()
-            self.sleep(0.05)
-            price_ctrl.type_keys("^a")
-            self.sleep(0.05)
-            price_ctrl.type_keys(price)
             self.sleep(0.08)
-            # # 3. 输入数量（先全选清空再输入，兼容信用账户数量框自动填充的情况）
-            qty_ctrl = self.get_control_with_children(main_panel, control_type="Edit", auto_id="1034")
-            qty_ctrl.set_focus()
-            self.sleep(0.05)
-            qty_ctrl.type_keys("^a")
-            self.sleep(0.05)
-            qty_ctrl.type_keys(str(quantity))
+            # # 2.输入价格
+            self.get_control_with_children(main_panel, control_type="Edit", auto_id="1033").type_keys(price)
+            self.sleep(0.08)
+            # # 3. 输入数量
+            self.get_control_with_children(main_panel, control_type="Edit", auto_id="1034").type_keys(str(quantity))
             # # 等待输入数量后稳定在确认
             self.sleep(0.3)
             # # 4. 点击买入按钮
@@ -151,6 +141,8 @@ class BuyOperation(BaseOperation):
             self.wait_for_pop_dialog(0.25)
             # # 没弹窗就是成功，这里已经假设用户已经按照项目设置好软件，为了加快操作速度，去掉了多余的弹窗处理（因为设置好软件后不会有弹窗）
             is_op_success = not self.is_exist_pop_dialog()
+            # 证券名称，如果购买成功，stock_name会清空
+            stock_name = self.get_control_with_children(main_panel, control_type="Text", auto_id="1036").window_text()
 
             message = f"成功提交{stock_code}的买入委托"
             if not is_op_success:
@@ -159,6 +151,10 @@ class BuyOperation(BaseOperation):
                 if pop_dialog_title == "失败提示":
                     message = self.get_control_with_children(pop_control, control_type="Image", auto_id="1004", class_name="Static").window_text()
                     self.get_control_with_children(pop_control, control_type="Button", auto_id="2", class_name="Button").type_keys("{ENTER}")
+            # 二次确认
+            elif len(stock_name) > 0:
+                message = f"买入操作未能成功，请检查软件设置是否有项目要求不符的地方"
+                is_op_success = False
 
             # 返回买入结果
             result_data = {

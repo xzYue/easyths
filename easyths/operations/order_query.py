@@ -46,7 +46,7 @@ class OrderQueryOperation(BaseOperation):
 
             # 验证返回类型
             return_type = params.get("return_type")
-            if return_type not in ["str", "json", "dict", "markdown"]:
+            if return_type is not None and return_type not in ["str", "json", "dict", "markdown", "df"]:
                 self.logger.error("参数return_type无效，有效值为：str、json、dict、markdown")
                 return False
 
