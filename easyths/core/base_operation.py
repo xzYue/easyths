@@ -9,6 +9,9 @@ import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
+
+from PIL import Image
 from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
 
 import pyperclip
@@ -21,6 +24,7 @@ if TYPE_CHECKING:
 from easyths.core.tonghuashun_automator import TonghuashunAutomator
 from easyths.models.operations import OperationResult, PluginMetadata
 from easyths.utils import get_captcha_ocr_server
+from easyths.utils.config import project_config_instance
 logger = structlog.get_logger(__name__)
 
 
@@ -284,6 +288,21 @@ class BaseOperation(ABC):
             return True
         return len(childrens) != 0
 
+    def get_pop_dialog_content(self)-> str | None:
+        """获取弹窗内容"""
+        if not self.is_exist_pop_dialog():
+            return None
+
+        main_window = self.get_main_window(wrapper_obj=True)
+        childrens = main_window.children(control_type="Pane", class_name="#32770")
+        # 可能会出现多个（概率很小），但是不管，找到一个直接返回，由上层应用兜底和判断
+        for children in childrens:
+            # 根据
+            sub_childrens = children.children(class_name="Static")
+            content = "".join([child.window_text() for child in sub_childrens])
+            return content
+        return None
+
     def get_pop_dialog(self) -> Tuple[Optional[str], Optional[Any]]:
         """
         获取弹窗标题和对应弹窗控件，搭配get_control_in_children实现更细化的使用
@@ -404,9 +423,14 @@ class BaseOperation(ABC):
         """
         captcha_code_length = 0
         count = 0
+        captcha_image = None
         while self.is_exist_pop_dialog() and count < 5:
             pop_dialog_title, pop_control = self.get_pop_dialog()
             if pop_dialog_title == "验证码提示框":
+                if captcha_image is not None and captcha_code_length != 0 and project_config_instance.save_error_captcha_image:
+                    # 保存错误的图片
+                    captcha_image.save(f"{str(Path("~/easyths/captcha_error").expanduser())}/{uuid4().hex[:12]}.png")
+
                 code_edit = self.get_control_with_children(pop_control, control_type="Edit", auto_id="2404",
                                                            class_name="Edit")
                 if code_edit is None:
@@ -433,7 +457,7 @@ class BaseOperation(ABC):
                         pass
                     # 等待刷新验证码
                     self.sleep(0.2)
-                captcha_code = self.ocr_captcha(code_image_control)
+                captcha_code, captcha_image = self.ocr_captcha(code_image_control)
                 captcha_code_length = len(captcha_code)
 
                 # [Fix] type_keys 依赖 SendInput，在同花顺窗口焦点被抢走
@@ -505,10 +529,10 @@ class BaseOperation(ABC):
         return None
 
 
-    def ocr_captcha(self, control: Any) -> str:
+    def ocr_captcha(self, control: Any) -> Tuple[str, Image.Image]:
         """根据控件获取OCR验证码结果"""
-        code = get_captcha_ocr_server().recognize(control)
-        return code
+        code, image = get_captcha_ocr_server().recognize(control)
+        return code, image
 
 
     def get_clipboard_data(self) -> str:

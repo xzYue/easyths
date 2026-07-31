@@ -148,6 +148,8 @@ MCP 服务提供以下交易工具：
 |--------|------|
 | `buy` | 买入股票 |
 | `sell` | 卖出股票 |
+| `market_buy` | 市价买入股票（无需指定价格） |
+| `market_sell` | 市价卖出股票（无需指定价格） |
 
 ### 查询操作
 
@@ -169,6 +171,7 @@ MCP 服务提供以下交易工具：
 | 工具名 | 说明 |
 |--------|------|
 | `condition_buy` | 条件买入 |
+| `condition_sell` | 条件卖出 |
 | `condition_order_query` | 查询条件单 |
 | `condition_order_cancel` | 删除条件单 |
 

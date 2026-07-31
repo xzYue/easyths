@@ -276,7 +276,7 @@ class TradeClient:
         Args:
             stock_code: 股票代码（6位数字）
             price: 买入价格
-            quantity: 买入数量（必须是100的倍数）
+            quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
             timeout: 操作超时时间（秒）
 
         Returns:
@@ -305,6 +305,88 @@ class TradeClient:
         operation_id = self.execute_operation("buy", params)
         return self.get_operation_result(operation_id, timeout=timeout)
 
+    def market_buy(
+        self,
+        stock_code: str,
+        quantity: int,
+        execution_strategy: Literal[1, 2, 3, 4, 5, 6] = 3,
+        timeout: Optional[float] = None
+    ) -> dict:
+        """
+        市价买入股票，无需指定价格，通过成交策略决定成交方式。
+
+        注意：并不是所有类型的标的都支持市价交易，且可用成交策略因标的而异。
+        如果设置了不支持的策略，系统会自动使用「五档即成剩撤」进行提交。
+
+        Args:
+            stock_code: 股票代码（6位数字）
+            quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
+            execution_strategy: 成交策略，默认 3
+                - 1: 对手方最优
+                - 2: 本方最优
+                - 3: 五档即成剩撤
+                - 4: 即成剩撤
+                - 5: 全额成交或撤
+                - 6: 五档即成剩转限
+            timeout: 操作超时时间（秒）
+
+        Returns:
+            操作结果（OperationResult），格式与 buy() 相同
+
+        Examples:
+            >>> result = client.market_buy("600000", 100, 3)
+            >>> if result["success"]:
+            ...     print(result["data"]["message"])
+        """
+        params = {
+            "stock_code": stock_code,
+            "quantity": quantity,
+            "execution_strategy": execution_strategy
+        }
+        operation_id = self.execute_operation("market_buy", params)
+        return self.get_operation_result(operation_id, timeout=timeout)
+
+    def market_sell(
+        self,
+        stock_code: str,
+        quantity: int,
+        execution_strategy: Literal[1, 2, 3, 4, 5, 6] = 3,
+        timeout: Optional[float] = None
+    ) -> dict:
+        """
+        市价卖出股票，无需指定价格，通过成交策略决定成交方式。
+
+        注意：并不是所有类型的标的都支持市价交易，且可用成交策略因标的而异。
+        如果设置了不支持的策略，系统会自动使用「五档即成剩撤」进行提交。
+
+        Args:
+            stock_code: 股票代码（6位数字）
+            quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
+            execution_strategy: 成交策略，默认 3
+                - 1: 对手方最优
+                - 2: 本方最优
+                - 3: 五档即成剩撤
+                - 4: 即成剩撤
+                - 5: 全额成交或撤
+                - 6: 五档即成剩转限
+            timeout: 操作超时时间（秒）
+
+        Returns:
+            操作结果（OperationResult），格式与 buy() 相同
+
+        Examples:
+            >>> result = client.market_sell("600000", 100, 3)
+            >>> if result["success"]:
+            ...     print(result["data"]["message"])
+        """
+        params = {
+            "stock_code": stock_code,
+            "quantity": quantity,
+            "execution_strategy": execution_strategy
+        }
+        operation_id = self.execute_operation("market_sell", params)
+        return self.get_operation_result(operation_id, timeout=timeout)
+
     def sell(
         self,
         stock_code: str,
@@ -318,7 +400,7 @@ class TradeClient:
         Args:
             stock_code: 股票代码（6位数字）
             price: 卖出价格
-            quantity: 卖出数量（必须是100的倍数）
+            quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
             timeout: 操作超时时间（秒）
 
         Returns:
@@ -387,7 +469,7 @@ class TradeClient:
         Args:
             stock_code: 股票代码（6位数字）
             target_price: 目标价格（触发价格）
-            quantity: 买入数量（必须是100的倍数）
+            quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
             expire_days: 有效期（自然日），可选1/3/5/10/20/30，默认30
             timeout: 操作超时时间（秒）
 
@@ -418,6 +500,53 @@ class TradeClient:
         operation_id = self.execute_operation("condition_buy", params)
         return self.get_operation_result(operation_id, timeout=timeout)
 
+    def condition_sell(
+        self,
+        stock_code: str,
+        target_price: float,
+        quantity: int,
+        expire_days: int = 30,
+        timeout: Optional[float] = None
+    ) -> dict:
+        """
+        条件卖出股票
+
+        设置条件卖出单，当股价达到目标价格时自动触发卖出。
+
+        Args:
+            stock_code: 股票代码（6位数字）
+            target_price: 目标价格（触发价格）
+            quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
+            expire_days: 有效期（自然日），可选1/3/5/10/20/30，默认30
+            timeout: 操作超时时间（秒）
+
+        Returns:
+            操作结果（OperationResult），格式为：
+            {
+                "success": bool,
+                "data": {...},  # 业务数据
+                "message": str | None,  # 错误信息或成功消息
+                "timestamp": str  # ISO 8601 格式时间
+            }
+
+        Raises:
+            TradeClientError: 连接失败、API 错误或操作超时
+
+        Examples:
+            >>> client = TradeClient(...)
+            >>> result = client.condition_sell("600000", 15.00, 100, expire_days=30)
+            >>> if result["success"]:
+            ...     print(result["data"]["message"])
+        """
+        params = {
+            "stock_code": stock_code,
+            "target_price": target_price,
+            "quantity": quantity,
+            "expire_days": expire_days
+        }
+        operation_id = self.execute_operation("condition_sell", params)
+        return self.get_operation_result(operation_id, timeout=timeout)
+
     def stop_loss_profit(
         self,
         stock_code: str,
@@ -436,7 +565,7 @@ class TradeClient:
             stock_code: 股票代码（6位数字）
             stop_loss_percent: 止损百分比（如3表示3%）
             stop_profit_percent: 止盈百分比（如5表示5%）
-            quantity: 卖出数量（必须是100的倍数），可选，不指定则使用全部可用持仓
+            quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数），可选，不指定则使用全部可用持仓
             expire_days: 有效期（自然日），可选1/3/5/10/20/30，默认30
             timeout: 操作超时时间（秒）
 

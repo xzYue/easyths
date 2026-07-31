@@ -6,16 +6,16 @@ from easyths.core import BaseOperation
 from easyths.models.operations import PluginMetadata, OperationResult
 
 
-class ConditionBuyOperation(BaseOperation):
-    """条件买入股票操作 - 同步执行模式"""
+class ConditionSellOperation(BaseOperation):
+    """条件卖出股票操作 - 同步执行模式"""
 
     def _get_metadata(self) -> PluginMetadata:
         return PluginMetadata(
-            name="ConditionBuyOperation",
+            name="ConditionSellOperation",
             version="1.0.0",
-            description="条件买入股票操作",
+            description="条件卖出股票操作",
             author="noimank",
-            operation_name="condition_buy",
+            operation_name="condition_sell",
             parameters={
                 "stock_code": {
                     "type": "string",
@@ -35,7 +35,7 @@ class ConditionBuyOperation(BaseOperation):
                 "quantity": {
                     "type": "integer",
                     "required": True,
-                    "description": "买入数量（股票必须是100的倍数，可转债必须是10的倍数）",
+                    "description": "卖出数量（股票必须是100的倍数，可转债必须是10的倍数）",
                     "minimum": 10,
                     "multiple_of": 10
                 },
@@ -50,7 +50,7 @@ class ConditionBuyOperation(BaseOperation):
         )
 
     def validate(self, params: Dict[str, Any]) -> bool:
-        """验证条件买入参数"""
+        """验证条件卖出参数"""
         try:
             # 检查必需参数
             required_params = ["stock_code", "target_price", "quantity"]
@@ -90,7 +90,7 @@ class ConditionBuyOperation(BaseOperation):
                 self.logger.error("单笔金额过大")
                 return False
 
-            self.logger.info("条件买入参数验证通过")
+            self.logger.info("条件卖出参数验证通过")
             return True
 
         except Exception as e:
@@ -98,7 +98,7 @@ class ConditionBuyOperation(BaseOperation):
             return False
 
     def execute(self, params: Dict[str, Any]) -> OperationResult:
-        """执行条件买入操作"""
+        """执行条件卖出操作"""
         stock_code = params["stock_code"]
         target_price = params["target_price"]
         # 判断代码是否是etf,股票类别和etf类别精度不一致 https://github.com/noimank/easyths/issues/6
@@ -113,7 +113,7 @@ class ConditionBuyOperation(BaseOperation):
 
         try:
             self.logger.info(
-                f"执行条件买入操作",
+                f"执行条件卖出操作",
                 stock_code=stock_code,
                 target_price=target_price,
                 quantity=quantity
@@ -136,7 +136,7 @@ class ConditionBuyOperation(BaseOperation):
             }
             pop_dialog_title, pop_toolbar_control = self.get_pop_dialog()
             is_op_success = False
-            op_message = f"执行{stock_code}的条件单失败"
+            op_message = f"执行{stock_code}的条件卖出失败"
 
             if pop_dialog_title == "ConditionToolBar":
                 # 获取主界面
@@ -145,16 +145,26 @@ class ConditionBuyOperation(BaseOperation):
                     control_type="Pane", class_name="Chrome_WidgetWin_0")[0]
                 document_panel = self.get_control_with_children(inner_panel2, control_type="Document",
                                                                 class_name="Chrome_RenderWidgetHostHWND")
-
+                tab_control = self.get_control_with_children(document_panel, control_type="Tab")
+                # 选择卖出
+                # 获取所有子控件（即各个选项卡）
+                tab_items = tab_control.children()
+                tab_items[1].click_input()
+                self.sleep(0.3)
                 combox = self.get_control_with_children(document_panel, control_type="ComboBox")
                 stock_edit = self.get_control_with_children(combox, control_type="Edit", title_re="代码")
                 #设置股票代码
                 stock_edit.set_text(stock_code)
                 # 设置目标价格
                 self.get_control_with_children(document_panel, control_type="Edit").set_text(str(target_price))
-                self.sleep(0.2)
+                self.sleep(0.3)
                 # 下一步
-                self.get_control_with_children(document_panel, control_type="Button", title="下一步").click()
+                next_btn = self.get_control_with_children(document_panel, control_type="Button", title="下一步")
+                # 判断是否灰色
+                if not next_btn.is_enabled():
+                    self.logger.error("下一步按钮不可用")
+                    return OperationResult(success=False, message="条件卖出设置失败，请检查是否持有该标的", data={'msg': "条件卖出设置失败，请检查是否持有该标的"})
+                next_btn.click()
                 # 等页面重绘渲染
                 self.sleep(0.5)
                 # 只能根据序号定位
@@ -183,16 +193,16 @@ class ConditionBuyOperation(BaseOperation):
                 expire_list_control = self.get_control_with_children(document_panel, control_type="List")
                 expire_list_control.children(control_type="ListItem")[count_map.get(str(expire_days))].invoke()
 
-                self.sleep(0.2)
+                self.sleep(0.25)
                 expire_list_control.type_keys("{ENTER}")
-                self.sleep(0.2)
+                self.sleep(0.3)
                 self.get_control_with_children(document_panel, control_type="Button", title="提交确认").click()
                 # 等待弹窗出现，看是否会出现提示成功添加到条件单的窗口，直接关闭，关不关都无所谓了，反正会被close_pop_dailog函数关闭，这里还省掉sleep呢
                 # 关闭可能出现的成功提示弹窗
                 # self.sleep(0.2)
                 # self.get_pop_dialog()[1].type_keys("{ESC}", pause=0.15)
                 is_op_success = True
-                op_message = f"执行{stock_code}的条件买入成功"
+                op_message = f"执行{stock_code}的条件卖出成功"
 
             result_data = {
                 "stock_code": stock_code,
@@ -202,7 +212,7 @@ class ConditionBuyOperation(BaseOperation):
                 "expire_days": expire_days
             }
 
-            self.logger.info(f"条件买入操作耗时{time.time() - start_time}, 操作结果：", **result_data)
+            self.logger.info(f"条件卖出操作耗时{time.time() - start_time}, 操作结果：", **result_data)
             return OperationResult(
                 message=op_message,
                 success=is_op_success,
@@ -210,6 +220,6 @@ class ConditionBuyOperation(BaseOperation):
             )
 
         except Exception as e:
-            error_msg = f"条件买入操作异常: {str(e)}"
+            error_msg = f"条件卖出操作异常: {str(e)}"
             self.logger.exception(error_msg)
             return OperationResult(success=False, message=error_msg)

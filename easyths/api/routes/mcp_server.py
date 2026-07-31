@@ -82,7 +82,7 @@ def buy(stock_code: str, price: float, quantity: int) -> dict:
     Args:
         stock_code: 股票代码（6位数字）
         price: 买入价格
-        quantity: 买入数量（必须是100的倍数）
+        quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
 
     Returns:
         买入结果
@@ -101,7 +101,7 @@ def sell(stock_code: str, price: float, quantity: int) -> dict:
     Args:
         stock_code: 股票代码（6位数字）
         price: 卖出价格
-        quantity: 卖出数量（必须是100的倍数）
+        quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
 
     Returns:
         卖出结果
@@ -110,6 +110,48 @@ def sell(stock_code: str, price: float, quantity: int) -> dict:
         "stock_code": stock_code,
         "price": price,
         "quantity": quantity
+    })
+
+
+@mcp_server.tool
+def market_buy(stock_code: str, quantity: int, execution_strategy: int = 3) -> dict:
+    """市价买入股票，无需指定价格，通过成交策略决定成交方式。
+    注意：并不是所有类型的标的都支持市价交易，且可用成交策略因标的而异。
+    如果设置了不支持的策略，系统会自动使用「五档即成剩撤」进行提交。
+
+    Args:
+        stock_code: 股票代码（6位数字）
+        quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
+        execution_strategy: 成交策略，默认3：1-对手方最优 2-本方最优 3-五档即成剩撤 4-即成剩撤 5-全额成交或撤 6-五档即成剩转限
+
+    Returns:
+        市价买入结果
+    """
+    return _execute_operation("market_buy", {
+        "stock_code": stock_code,
+        "quantity": quantity,
+        "execution_strategy": execution_strategy
+    })
+
+
+@mcp_server.tool
+def market_sell(stock_code: str, quantity: int, execution_strategy: int = 3) -> dict:
+    """市价卖出股票，无需指定价格，通过成交策略决定成交方式。
+    注意：并不是所有类型的标的都支持市价交易，且可用成交策略因标的而异。
+    如果设置了不支持的策略，系统会自动使用「五档即成剩撤」进行提交。
+
+    Args:
+        stock_code: 股票代码（6位数字）
+        quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
+        execution_strategy: 成交策略，默认3：1-对手方最优 2-本方最优 3-五档即成剩撤 4-即成剩撤 5-全额成交或撤 6-五档即成剩转限
+
+    Returns:
+        市价卖出结果
+    """
+    return _execute_operation("market_sell", {
+        "stock_code": stock_code,
+        "quantity": quantity,
+        "execution_strategy": execution_strategy
     })
 
 
@@ -217,13 +259,41 @@ def condition_buy(
     Args:
         stock_code: 股票代码（6位数字）
         target_price: 目标触发价格
-        quantity: 买入数量（必须是100的倍数）
+        quantity: 买入数量（股票必须是100的倍数，可转债必须是10的倍数）
         expire_days: 策略有效期（天），可选值: 1, 3, 5, 10, 20, 30
 
     Returns:
         条件单创建结果
     """
     return _execute_operation("condition_buy", {
+        "stock_code": stock_code,
+        "target_price": target_price,
+        "quantity": quantity,
+        "expire_days": expire_days
+    })
+
+
+@mcp_server.tool
+def condition_sell(
+    stock_code: str,
+    target_price: float,
+    quantity: int,
+    expire_days: int = 30
+) -> dict:
+    """条件卖出股票
+
+    当股价达到目标价格时自动卖出
+
+    Args:
+        stock_code: 股票代码（6位数字）
+        target_price: 目标触发价格
+        quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数）
+        expire_days: 策略有效期（天），可选值: 1, 3, 5, 10, 20, 30
+
+    Returns:
+        条件单创建结果
+    """
+    return _execute_operation("condition_sell", {
         "stock_code": stock_code,
         "target_price": target_price,
         "quantity": quantity,
@@ -284,7 +354,7 @@ def stop_loss_profit(
         stock_code: 股票代码（6位数字）
         stop_loss_percent: 止损百分比（如3表示3%）
         stop_profit_percent: 止盈百分比（如5表示5%）
-        quantity: 卖出数量（必须是100的倍数），不指定则使用全部持仓
+        quantity: 卖出数量（股票必须是100的倍数，可转债必须是10的倍数），不指定则使用全部持仓
         expire_days: 策略有效期（天），可选值: 1, 3, 5, 10, 20, 30
 
     Returns:
