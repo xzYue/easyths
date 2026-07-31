@@ -409,17 +409,62 @@ class BaseOperation(ABC):
             if pop_dialog_title == "验证码提示框":
                 code_edit = self.get_control_with_children(pop_control, control_type="Edit", auto_id="2404",
                                                            class_name="Edit")
+                if code_edit is None:
+                    logger.warning("process_captcha_dialog: 未找到验证码输入框控件")
+                    count += 1
+                    continue
+
                 # 尝试删除可能存在的旧验证码
-                code_edit.type_keys('{{BACKSPACE {}}}'.format(captcha_code_length))
+                try:
+                    code_edit.type_keys('{{BACKSPACE {}}}'.format(captcha_code_length))
+                except Exception:
+                    # type_keys 失败时尝试用 set_edit_text 清空
+                    try:
+                        code_edit.set_edit_text("")
+                    except Exception:
+                        pass
+
                 code_image_control = self.get_control_with_children(pop_control, control_type="Image", auto_id="2405",
                                                                     class_name="Static")
                 if captcha_code_length != 0:
-                    code_image_control.click_input()
+                    try:
+                        code_image_control.click_input()
+                    except Exception:
+                        pass
                     # 等待刷新验证码
                     self.sleep(0.2)
                 captcha_code = self.ocr_captcha(code_image_control)
                 captcha_code_length = len(captcha_code)
-                code_edit.type_keys(captcha_code)
+
+                # [Fix] type_keys 依赖 SendInput，在同花顺窗口焦点被抢走
+                # 或 Windows UIPI 阻止时会插入 0 个键盘事件导致
+                # RuntimeError: SendInput() inserted only 0 out of N keyboard events
+                # 这里先尝试 set_focus + type_keys，失败则用 set_edit_text 兜底
+                input_ok = False
+                try:
+                    code_edit.set_focus()
+                    self.sleep(0.05)
+                    code_edit.type_keys(captcha_code)
+                    input_ok = True
+                except Exception as e:
+                    logger.warning(
+                        "验证码 type_keys 失败(SendInput), 尝试 set_edit_text 兜底",
+                        error=str(e)[:120],
+                    )
+
+                if not input_ok:
+                    try:
+                        code_edit.set_edit_text(captcha_code)
+                        # set_edit_text 不会触发键盘事件，同花顺可能需要感知输入
+                        # 模拟点击输入框末尾确保控件收到变更通知
+                        code_edit.click_input()
+                        input_ok = True
+                    except Exception as e:
+                        logger.error(
+                            "验证码 set_edit_text 兜底也失败",
+                            error=str(e)[:120],
+                        )
+
                 self.sleep(0.1)
                 # 按确定键
                 # self.get_control_with_children(pop_control,control_type="Button", auto_id="1", class_name="Button").click_input()
