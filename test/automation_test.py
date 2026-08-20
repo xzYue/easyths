@@ -252,7 +252,7 @@ def test_reverse_repo_buy_op():
         }
 
         result = op.run(params)
-        print(f"操作结果: {result.success}, data: {result.data}")
+        print(f"操作结果: {result.success}, data: {result.data}, message={result.message}")
 
     finally:
         # 断开连接
@@ -481,6 +481,6 @@ if __name__ == "__main__":
     # test_stop_loss_profit_op()
     # test_condition_order_query_op()
     # test_condition_order_cancel_op()
-    # test_market_buy_op()
+    test_market_buy_op()
     # test_market_sell_op()
-    test_condition_sell_op()
+    # test_condition_sell_op()

@@ -17,7 +17,7 @@ index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
 [project]
 name = "easyths"
-version = "1.7.4"
+version = "1.7.5"
 description = "同花顺交易自动化系统"
 authors = [
     { name = "noimank", email = "noimank@163.com" }
@@ -79,6 +79,7 @@ dev = [
     "black>=24.10.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    "pytest>=8.0.0",
     "pre-commit>=4.0.1",
     "mkdocs-material>=9.7.1",
     "mkdocs-minify-plugin>=0.8.0",
