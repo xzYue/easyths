@@ -14,6 +14,8 @@ import argparse
 import shutil
 import sys
 import platform
+import threading
+import time
 from pathlib import Path
 
 import psutil
@@ -33,6 +35,9 @@ PROJECT_VERSION = "1.7.5"
 PROJECT_REPO = "https://github.com/noimank/easyths"
 PROJECT_DOCS = "https://noimank.github.io/easyths/"
 PROJECT_ISSUES = "https://github.com/noimank/easyths/issues"
+
+# 未连接时后台重新附着的重试间隔（秒）
+RECONNECT_RETRY_INTERVAL_SECONDS = 30
 
 
 def get_asset_path() -> Path:
@@ -236,17 +241,64 @@ def check_running_env():
     return True
 
 
+def start_connection_watchdog(
+    automator: TonghuashunAutomator,
+    interval_seconds: int = RECONNECT_RETRY_INTERVAL_SECONDS,
+) -> threading.Thread:
+    """启动券商附着看门狗守护线程
+
+    未连接（或句柄失效）时每隔 interval_seconds 秒尝试重新附着；
+    连接健康期间保持静默，不产生日志噪音。
+
+    Args:
+        automator: 自动化器实例
+        interval_seconds: 重试间隔（秒）
+
+    Returns:
+        threading.Thread: 守护线程实例
+    """
+    logger = structlog.get_logger(__name__)
+
+    def _loop():
+        while True:
+            try:
+                if automator.ensure_connected():
+                    return
+            except Exception as exc:
+                logger.warning("券商附着看门狗：本次重连尝试异常", error=str(exc))
+            time.sleep(interval_seconds)
+
+    thread = threading.Thread(
+        target=_loop,
+        name="easyths-connect-watchdog",
+        daemon=True,
+    )
+    thread.start()
+    logger.info(
+        "券商附着看门狗已启动，将周期性重试连接",
+        interval_seconds=interval_seconds,
+    )
+    return thread
+
+
 def initialize_components():
     """初始化组件 - 同步初始化
 
     Returns:
         tuple: (automator, operation_queue)
     """
+    logger = structlog.get_logger(__name__)
+
     # 创建自动化器
     automator = TonghuashunAutomator()
 
-    # 连接到同花顺
-    automator.connect()
+    # 连接到同花顺；失败时不再静默放弃，启动看门狗后台重试
+    if not automator.connect():
+        logger.warning(
+            "初始连接同花顺失败，启动后台看门狗周期性重试",
+            retry_interval_seconds=RECONNECT_RETRY_INTERVAL_SECONDS,
+        )
+        start_connection_watchdog(automator)
 
     # 创建操作队列
     operation_queue = OperationQueue(automator)
